@@ -1,0 +1,9 @@
+hypercorn
+fastapi
+pyodbc
+selenium
+webdriver_manager
+bs4
+python-dotenv
+pandas
+email.mime.text
