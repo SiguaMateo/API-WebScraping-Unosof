@@ -24,23 +24,23 @@ except Exception as e:
 #     with conn.cursor() as cursor:
 #         # Verificar si la tabla existe y eliminarla si es así
 #         cursor.execute("""
-#             IF EXISTS (SELECT * FROM sysobjects WHERE name='CajasProducidasUnosof_Dev' AND xtype='U')
+#             IF EXISTS (SELECT * FROM sysobjects WHERE name='rptCajasProducidasUnosof_Dev' AND xtype='U')
 #             BEGIN
-#                 DROP TABLE CajasProducidasUnosof_Dev
+#                 DROP TABLE rptCajasProducidasUnosof_Dev
 #             END
 #         """)
 #         conn.commit()
 
 #         # Crear una nueva tabla
 #         cursor.execute("""
-#             CREATE TABLE CajasProducidasUnosof_Dev (
+#             CREATE TABLE rptCajasProducidasUnosof_Dev (
 #             id INT PRIMARY KEY IDENTITY(1,1),
 #             box_product NVARCHAR(150),
 #             box_total_weight NUMERIC(10,2),
 #             box_avg_weight NUMERIC(10,2),
 #             box_bounches INT,
 #             box_stems INT,
-#             box_r_date DATE
+#             box_webscraping_date DATE
 #             )
 #         """)
 #         conn.commit()
@@ -106,7 +106,7 @@ url_home_query = """SELECT prm_valor
                 FROM dbo.Parametros_Sistema
                 WHERE id_grupo = 1 AND prm_descripcion = 'url_home'"""
 
-insert_query = """INSERT INTO CajasProducidasUnosof_Dev VALUES (?,?,?,?,?,?)"""
+insert_query = """INSERT INTO rptCajasProducidasUnosof_Dev VALUES (?,?,?,?,?,?)"""
 
 def get_url():
     try:

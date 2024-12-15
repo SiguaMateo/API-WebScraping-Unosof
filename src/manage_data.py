@@ -7,7 +7,7 @@ except Exception as e:
 
 def save():
     try:
-        with open("unosof_data.csv", mode='r', encoding='utf-8') as file:
+        with open("unosof_data_1dia.csv", mode='r', encoding='utf-8') as file:
             reader = csv.reader(file)
 
             for row in reader:
@@ -15,9 +15,9 @@ def save():
                 print(f"Fila leida: {row}")
 
                 data_base.cursor.execute(data_base.insert_query, row)
-                print(f"Datos gurdados correctamente")
+                print(f"Datos guardados correctamente")
 
-        data_base.cursor.commit()        
+                data_base.cursor.commit()        
 
     except Exception as e:
         message = f"Ocurrio un error al guardar los datos en la base de datos, {e}"

@@ -24,12 +24,19 @@ def default_endpoint():
 def web_scraping_main():
     try:
         main.scraple_data()
-        main.driver.quit()
+        main.create_driver().quit()
         time.sleep(5)
-        manage_data.save()
+        #manage_data.save()
         return {" message ": " Obteniendo datos "}
     except Exception as e:
         print(f"Ocurrio un error con el Endpoint get-data-UNOSOF, {e}")
+    
+@app.get("/save")
+def save():
+    try:
+        manage_data.save()
+    except Exception as e:
+        print(f"ERROR en el endpoint save, {e}")
 
 def schedule_scraping_tasks():
     try:
@@ -38,7 +45,7 @@ def schedule_scraping_tasks():
         # Programar el scraping de ventas todos los días a las 8 PM
         scheduler.add_job(
             web_scraping_main,
-            CronTrigger(hour=12, minute=45),
+            CronTrigger(hour=14, minute=29),
             id='scrape_unosof',
             replace_existing=True
         )

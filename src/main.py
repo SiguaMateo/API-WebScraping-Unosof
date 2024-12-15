@@ -18,55 +18,43 @@ try:
 except Exception as e:
     print(f"Error al importar las librerias en main, {e}")
 
-def login():
-    max_retries = 2
-    retries = 0
-    while retries < max_retries:
-        try:
-            global driver
-            # Inicializar el navegador
-            chrome_options = Options()
-            chrome_options.binary_location = "/usr/bin/google-chrome"
-            # chrome_options.add_argument("--headless") # visualizar el navegador
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-            driver.get(data_base.get_url())
+def create_driver():
+    """Inicializa y devuelve una instancia de ChromeDriver."""
+    chrome_options = Options()
+    chrome_options.binary_location = "/usr/bin/google-chrome"
+    # chrome_options.add_argument("--headless")  # Descomentar para ejecución en modo sin cabeza
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-            # Iniciar sesión
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username"))).send_keys(data_base.get_user())
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password"))).send_keys(data_base.get_password())
+def login(driver):
+    """Realiza el inicio de sesión en la plataforma."""
+    try:
+        driver.get(data_base.get_url())
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username"))).send_keys(data_base.get_user())
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password"))).send_keys(data_base.get_password())
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.NAME, "Login"))).click()
+        print("Inicio de sesión exitoso.")
+    except Exception as e:
+        error_msg = f"Error al iniciar sesión: {e}"
+        data_base.log_to_db("ERROR", error_msg, endpoint='login', status_code=500)
+        send_mail.send_mail(error_msg)
+        raise
 
-            message = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "Login"))).click()
-            print(message)
-
-            time.sleep(5)
-            break
-
-        except Exception as e:
-            retries += 1
-            print("Ocurrio un error al iniciar sesion, ", e)
-            time.sleep(3)
-            if retries == max_retries:
-                data_base.log_to_db(2, "ERROR", f"Ocurrio un error al iniciar sesión, {e}", endpoint='fallido', status_code=500)
-                send_mail.send_error_mail(f"Ocurrio un error al inciar sesión, {e}")
-                raise
-        finally:
-            if retries == max_retries:
-                driver.quit()
-    
-def scroll_down():
+def scroll_down(driver):
+    """Desplaza la página hacia abajo."""
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)
+    WebDriverWait(driver, 2).until(lambda d: d.execute_script("return document.readyState") == "complete")
 
 def scraple_data():
     max_retries = 5
     retries = 0
-    login()
-
+    driver = create_driver()
+    login(driver)
     while retries < max_retries:
         try:
+            # Obtener la fecha de hoy y hace 15 días
             today = datetime.today().date()
-            start_date = today
-            end_date = today
+            start_date = datetime(2024, 11, 24).date()
+            end_date = today  # Fecha final (hoy)
 
             print(f"Procesando datos desde {start_date} hasta {end_date}")
             driver.get(data_base.get_url_home())
@@ -81,65 +69,84 @@ def scraple_data():
             # Navegar al sitio
             driver.get(data_base.get_url_home())
 
-            # Acciones para la iteración del scraping
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_start"))).clear()
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_start"))).send_keys(start_date_str)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_end"))).clear()
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_end"))).send_keys(end_date_str)
+            print(f"Procesando datos desde {start_date} hasta {end_date}")
 
-            # Selección de otros elementos en la interfaz
-            Select(WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, 'nm_report')))).select_by_index(5)
-            Select(WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, 'gu_warehouse')))).select_by_index(0)
+            while start_date <= end_date:  # Iterar día por día
+                print(f"Extrayendo datos del día: {start_date}")
+                
+                # Convertir la fecha actual a string
+                start_date_str = start_date.strftime('%Y-%m-%d')
 
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "searchInventory"))).click()
+                print("Fecha: ", start_date_str)
 
-            # Esperar a que los datos carguen
-            WebDriverWait(driver, 120).until(EC.visibility_of_element_located((By.ID, 'tblAgedInventory')))
-            print(f"Datos cargados correctamente para el rango {start_date_str} - {end_date_str}")
+                # Acciones para el scraping del día específico
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_start"))).clear()
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_start"))).send_keys(start_date_str)
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_end"))).clear()
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "dt_inventory_end"))).send_keys(start_date_str)
 
-            scroll_down()
+                # Selección de otros elementos en la interfaz
+                Select(WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, 'nm_report')))).select_by_index(5)
+                Select(WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, 'gu_warehouse')))).select_by_index(0)
 
-            # Extracción de datos y generación del CSV
-            page_content = driver.page_source
-            soup = BeautifulSoup(page_content, 'html.parser')
-            table = soup.find(id='tblAgedInventory')
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "searchInventory"))).click()
 
-            if not table:
-                print("No se encontró la tabla en la página.")
-                raise Exception("Tabla no encontrada")
+                # Esperar a que los datos carguen
+                WebDriverWait(driver, 120).until(EC.visibility_of_element_located((By.ID, 'tblAgedInventory')))
+                print(f"Datos cargados correctamente para el día {start_date_str}")
 
-            for j, row in enumerate(table.find_all('tr')):
-                cells = row.find_all(['td', 'th'])
-                cell_values = [cell.get_text(strip=True) for cell in cells]
+                scroll_down(driver)
 
-                # Cabecera
-                if j == 0:
-                    headers = cell_values
-                    max_columns = len(headers)
-                else:
-                    # Ignorar filas no deseadas
-                    if len(cell_values) == 5 and cell_values == ["PRODUCT", "TOTAL WEIGHT", "AVG WEIGHT", "BUNCHES", "STEMS"]:
-                        continue
-                    rows.append(cell_values)
-                    max_columns = max(max_columns, len(cell_values))
+                # Extracción de datos y generación del CSV
+                page_content = driver.page_source
+                soup = BeautifulSoup(page_content, 'html.parser')
+                table = soup.find(id='tblAgedInventory')
 
-            # Agregar columna de fecha a cada fila
-            for row in rows:
-                row.append(start_date_str)  # Fecha inicial como nueva columna
+                if not table:
+                    print(f"No se encontró la tabla en la página para el día {start_date_str}.")
+                    start_date += timedelta(days=1)
+                    continue
 
-            # Completar filas para alinear con el máximo de columnas
-            headers.append("DATE")
-            for row in rows:
-                row.extend([None] * (max_columns - len(row)))
+                rows = []
+                headers = []
+                max_columns = 0
 
-            # Crear DataFrame y guardar datos
-            df = pd.DataFrame(rows, columns=headers)
-            print(df.head())
-            file_path = os.path.join(os.path.dirname(__file__), 'unosof_data.csv')
-            csv_filename = file_path
-            df.to_csv(csv_filename, index=False)
-            print(f"Datos del rango {start_date_str} - {end_date_str} guardados correctamente en '{csv_filename}'.")
+                for j, row in enumerate(table.find_all('tr')):
+                    cells = row.find_all(['td', 'th'])
+                    cell_values = [cell.get_text(strip=True) for cell in cells]
 
+                    # Cabecera
+                    if j == 0:
+                        headers = cell_values
+                        max_columns = len(headers)
+                    else:
+                        # Ignorar filas no deseadas
+                        if len(cell_values) == 5 and cell_values == ["PRODUCT", "TOTAL WEIGHT", "AVG WEIGHT", "BUNCHES", "STEMS"]:
+                            continue
+                        rows.append(cell_values)
+                        max_columns = max(max_columns, len(cell_values))
+                        
+                # Agregar columna de fecha a cada fila
+                for row in rows:
+                    row.append(start_date_str)  # Fecha actual como nueva columna
+
+                # Completar filas para alinear con el máximo de columnas
+                headers.append("DATE")
+                for row in rows:
+                    row.extend([None] * (max_columns - len(row)))
+
+                # Crear DataFrame y guardar datos
+                df = pd.DataFrame(rows, columns=headers)
+                print(df.head())
+                csv_filename = f"unosof_data_1dia.csv"
+                file_exists = os.path.isfile(csv_filename)
+                df.to_csv(csv_filename, index=False, mode='a', header=not file_exists)
+                print(f"Datos del día {start_date_str} guardados correctamente en '{csv_filename}'.")
+
+                # Pasar al siguiente día
+                start_date += timedelta(days=1)
+
+            print("Extracción completada para todo el rango de fechas.")
             break
 
         except Exception as e:
@@ -150,7 +157,6 @@ def scraple_data():
             if retries == max_retries:
                 print("Límite máximo de intentos alcanzado. Finalizando.")
                 break
-
 
 def clean_value(value):
     try:
